@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Main Gate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            margin-left: 120px; /* Adjust to accommodate sidebar width */
+        }
+
+        .video-container {
+            width: 100%;
+            max-width: 570px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .video-container img {
+            width: 100%;
+            border-radius: 10px;
+        }
+
+        .details-scroll-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1200px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            max-height: calc(100vh - 40px);
+            margin-top: 20px; /* Add margin to separate from sidebar */
+        }
+
+        .details-container {
+            width: calc(50% - 10px);
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .details-header {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .download-button {
+            background-color: #333;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        .download-button:hover {
+            background-color: #555;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 100px;
+            background-color: #333;
+            padding: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar button {
+            display: block;
+            width: 100%;
+            padding: 10px 0;
+            margin-bottom: 10px;
+            background-color: #555;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .logout-button {
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: auto;
+        }
+
+        .content {
+            margin-left: 120px; /* Adjust to accommodate sidebar width */
+            padding: 20px;
+        }
+
+        .video-container.left {
+            margin-right: 10px;
+        }
+
+        .video-container.right {
+            margin-left: 10px;
+        }
+
+        .video-container-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <button onclick="navigateTo('live')">LIVE</button>
+        <button onclick="navigateTo('main_gate')">MAIN GATE</button>
+        <button onclick="navigateTo('parking')">PARKING</button>
+        <form action="{{ url_for('logout') }}" method="get" class="logout-button">
+            <button type="submit">Logout</button>
+        </form>
+    </div>
+
+    <div class="container">
+        <div class="video-container-wrapper">
+            <div class="video-container left">
+                <img src="{{ url_for('video_feed', page='page2', side='left') }}" alt="Left Video for Page 2">
+            </div>
+            <div class="video-container right">
+                <img src="{{ url_for('video_feed', page='page2', side='right') }}" alt="Left Video for Page 2">
+            </div>
+        </div>
+        <div class="details-scroll-container">
+            <!-- Details Container for Left Video -->
+            <div class="details-container">
+                <h2 class="details-header">Details of Incoming vehicle</h2>
+                <table id="left-details-table">
+                    <thead>
+                        <tr>
+                            <th>Plate Number</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="left-details-body">
+                        <!-- Details will be added here dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- Details Container for Right Video -->
+            <div class="details-container">
+                <h2 class="details-header">Details of Outgoing vehicle</h2>
+                <table id="right-details-table">
+                    <thead>
+                        <tr>
+                            <th>Plate Number</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="right-details-body">
+                        <!-- Details will be added here dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <button class="download-button" onclick="downloadDetails()">Download Details</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.1/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        socket.on('update', function(data) {
+            // Assuming data structure is { text: plateNumber, timestamp: timestamp }
+            createDetailsRow(data.text, data.timestamp);
+        });
+
+        function createDetailsRow(text, timestamp) {
+            const leftDetailsBody = document.getElementById('left-details-body');
+            const rightDetailsBody = document.getElementById('right-details-body');
+
+            const row1 = document.createElement('tr');
+            row1.innerHTML = `
+                <td>${text}</td>
+                <td>${timestamp}</td>
+            `;
+            leftDetailsBody.appendChild(row1);
+
+            const row2 = document.createElement('tr');
+            row2.innerHTML = `
+                <td>${text}</td>
+                <td>${timestamp}</td>
+            `;
+            rightDetailsBody.appendChild(row2);
+        }
+
+        function downloadDetails() {
+            const leftDetailsTable = document.getElementById('left-details-table');
+            const leftDetailsText = Array.from(leftDetailsTable.querySelectorAll('tr')).map(row =>
+                Array.from(row.querySelectorAll('td')).map(cell => cell.innerText.trim()).join('\t')
+            ).join('\n');
+
+            const rightDetailsTable = document.getElementById('right-details-table');
+            const rightDetailsText = Array.from(rightDetailsTable.querySelectorAll('tr')).map(row =>
+                Array.from(row.querySelectorAll('td')).map(cell => cell.innerText.trim()).join('\t')
+            ).join('\n');
+
+            const detailsText = leftDetailsText + '\n' + rightDetailsText;
+
+            const blob = new Blob([detailsText], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'details.txt';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        function navigateTo(page) {
+            window.location.href = `/${page}`;
+        }
+
+        function logout() {
+            window.location.href = "{{ url_for('logout') }}";
+        }
+    </script>
+</body>
+</html>
